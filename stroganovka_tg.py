@@ -4,26 +4,21 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-# Токены берутся из секретов GitHub
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 URL = "https://rghpu.ru/konkursy-i-granty/"
 BASE_URL = "https://rghpu.ru"
 
+# Добавили "научарт" в ключевые слова
 KEYWORDS = [
     "дизайн",
-    "графическ",
+    "научарт",
     "плакат",
     "иллюстрац",
-    "айдентик",
-    "фирменн",
-    "шрифт",
     "конкурс",
     "грант",
     "open call",
-    "опенколл",
-    "выставк",
 ]
 
 DB_FILE = "seen_stroganovka.json"
@@ -47,27 +42,22 @@ def send_telegram_notification(title, link):
     try:
         res = requests.post(api_url, json=payload, timeout=10)
         if res.status_code == 200:
-            print("✅ Уведомление отправлено в Telegram!")
+            print("✅ Уведомление успешно отправлено в Telegram!")
         else:
             print(f"❌ Ошибка отправки: {res.status_code} - {res.text}")
     except Exception as e:
         print(f"❌ Ошибка соединения: {e}")
 
 
-def load_seen_items():
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
-
-
-def save_seen_items(seen_list):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(seen_list, f, ensure_ascii=False, indent=2)
-
-
 def parse_stroganovka():
-    print("🔍 Проверяем сайт Строгановки...")
+    print("🚀 ТЕСТОВЫЙ ЗАПУСК ПАРСЕРА...")
+    
+    # 1. Сразу отправляем тестовое сообщение, чтобы проверить связи с Telegram
+    send_telegram_notification(
+        "⚙️ ТЕСТ: Проверка связи с ботом прошла успешно!", 
+        URL
+    )
+
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -83,8 +73,6 @@ def parse_stroganovka():
         return
 
     soup = BeautifulSoup(response.text, "html.parser")
-    seen_items = load_seen_items()
-    new_found = 0
 
     for a_tag in soup.find_all("a"):
         title = a_tag.get_text(strip=True)
@@ -94,19 +82,12 @@ def parse_stroganovka():
             continue
 
         full_link = urljoin(BASE_URL, href)
-        if full_link in seen_items:
-            continue
-
         title_lower = title.lower()
+
+        # Если в ссылке или тексте есть "научарт" или другие ключевые слова
         if any(kw in title_lower for kw in KEYWORDS):
             print(f"🎯 Найден конкурс: {title}")
             send_telegram_notification(title, full_link)
-            seen_items.append(full_link)
-            new_found += 1
-
-    save_seen_items(seen_items)
-    if new_found == 0:
-        print("ℹ️ Новых конкурсов пока нет.")
 
 
 if __name__ == "__main__":
